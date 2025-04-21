@@ -8,4 +8,18 @@ providers:
             - http://192.168.0.101:8989
     google:
         enable: false
-        proxy: http://127.0.0.1:7890 
+        proxy: http://127.0.0.1:7890
+    deepseekChat:
+        enable: true
+        llm: true
+        baseUrl: https://api.deepseek.com
+        apiKey: sk-secret
+        model: deepseek-chat
+        system_prompt: "You are a professional, authentic machine translation engine."
+        user_prompt: "Translate the following text into {{to}}, If translation is unnecessary (e.g. proper nouns, codes, etc.), return the original text. NO explanations. NO notes:\n {{text}}"
+    deepseekR1:
+        enable: true
+        llm: true
+        baseUrl: https://api.deepseek.com
+        apiKey: sk-secret
+        model: deepseek-chat 

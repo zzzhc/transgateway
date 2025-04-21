@@ -31,16 +31,38 @@ func main() {
 	// 初始化翻译提供者
 	providers := make(map[string]translator.Provider)
 
-	if cfg.Providers.Mtranserver.Enable {
-		providers["mtranserver"] = translator.NewMTranServerProvider(cfg.Providers.Mtranserver.Endpoints)
-	}
-
-	if cfg.Providers.Google.Enable {
-		providers["google"] = translator.NewGoogleProvider(cfg.Providers.Google.Proxy)
-	}
-
 	// 添加 OpenCC 提供者
 	providers["opencc"] = translator.NewOpenCCProvider()
+
+	// 初始化其他提供者
+	for name, provider := range cfg.Providers {
+		if !provider.Enable {
+			continue
+		}
+
+		switch name {
+		case "mtranserver":
+			providers[name] = translator.NewMTranServerProvider(provider.Endpoints)
+		case "google":
+			providers[name] = translator.NewGoogleProvider(provider.Proxy)
+		default:
+			if provider.LLM {
+				llmConfig := translator.LLMConfig{
+					BaseURL:      provider.BaseUrl,
+					APIKey:       provider.ApiKey,
+					Model:        provider.Model,
+					SystemPrompt: provider.SystemPrompt,
+					UserPrompt:   provider.UserPrompt,
+				}
+				llmProvider, err := translator.NewLLMProvider(llmConfig)
+				if err != nil {
+					log.Printf("初始化LLM提供者 %s 失败: %v", name, err)
+					continue
+				}
+				providers[name] = llmProvider
+			}
+		}
+	}
 
 	// 设置Gin路由
 	r := gin.Default()
