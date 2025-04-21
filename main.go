@@ -59,6 +59,17 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
+	// 获取可用的翻译提供者列表
+	r.GET("/providers", func(c *gin.Context) {
+		providerList := make([]string, 0, len(providers))
+		for name := range providers {
+			providerList = append(providerList, name)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"providers": providerList,
+		})
+	})
+
 	// 单次翻译
 	r.GET("/translate", func(c *gin.Context) {
 		handleTranslate(c, providers)

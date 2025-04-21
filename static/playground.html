@@ -95,9 +95,6 @@
             <div class="form-group">
                 <label for="provider">翻译服务:</label>
                 <select id="provider">
-                    <option value="mtranserver">MTranServer</option>
-                    <option value="google">Google</option>
-                    <option value="opencc">OpenCC</option>
                 </select>
             </div>
             <div class="form-group">
@@ -119,8 +116,6 @@
             <div class="form-group">
                 <label for="batch_provider">翻译服务:</label>
                 <select id="batch_provider">
-                    <option value="mtranserver">MTranServer</option>
-                    <option value="google">Google</option>
                 </select>
             </div>
             <div class="form-group">
@@ -146,6 +141,42 @@
     </div>
 
     <script>
+        // 加载可用的翻译服务
+        async function loadProviders() {
+            try {
+                const response = await fetch('/providers');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // 更新单次翻译的提供者选择
+                const providerSelect = document.getElementById('provider');
+                providerSelect.innerHTML = '';
+                data.providers.forEach(provider => {
+                    const option = document.createElement('option');
+                    option.value = provider;
+                    option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+                    providerSelect.appendChild(option);
+                });
+
+                // 更新批量翻译的提供者选择
+                const batchProviderSelect = document.getElementById('batch_provider');
+                batchProviderSelect.innerHTML = '';
+                data.providers.forEach(provider => {
+                    const option = document.createElement('option');
+                    option.value = provider;
+                    option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+                    batchProviderSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('加载翻译服务失败:', error);
+            }
+        }
+
+        // 页面加载时获取翻译服务列表
+        document.addEventListener('DOMContentLoaded', loadProviders);
+
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.classList.remove('active');
