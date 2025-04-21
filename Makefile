@@ -1,5 +1,5 @@
 # 项目名称
-APP_NAME=translator
+APP_NAME=transgateway
 VERSION=1.0.0
 BUILD_TIME=$(shell date +%Y-%m-%d_%H:%M:%S)
 GIT_COMMIT=$(shell git rev-parse --short HEAD)

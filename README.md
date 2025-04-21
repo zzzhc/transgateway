@@ -1,4 +1,4 @@
-# Translator
+# TransGateway
 
 这是一个基于 Go 语言的翻译服务聚合项目，支持多种翻译服务提供商，提供统一的 REST API 接口。
 
@@ -121,4 +121,4 @@ go build
 
 ## 许可证
 
-Apache 2.0 
+Apache 2.0
