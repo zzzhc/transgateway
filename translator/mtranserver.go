@@ -51,6 +51,7 @@ func (p *MTranServerProvider) Translate(req TranslationRequest) (*TranslationRes
 	}
 	// 如果 from 是 auto，则检测语言
 	fromLang := req.From
+	detectedLang := ""
 	if fromLang == "auto" {
 		if language, exists := p.detector.DetectLanguageOf(req.Text); exists {
 			// 将 lingua 的语言代码转换为翻译服务使用的语言代码
@@ -58,20 +59,41 @@ func (p *MTranServerProvider) Translate(req TranslationRequest) (*TranslationRes
 		} else {
 			fromLang = "en" // 如果无法检测，默认使用英语
 		}
+		detectedLang = fromLang
 	}
 
-	// 构建请求体
+	// 检查是否需要两步翻译（当目标语言是中文且源语言不是英文时）
+	needTwoStepTranslation := !(req.To == "en" || fromLang == "en")
+
+	var intermediateResult *TranslationResponse
+	var err error
+
+	if needTwoStepTranslation {
+		// 第一步：先翻译到英文
+		intermediateResult, err = p.translateWithEndpoints(detectedLang, fromLang, "en", req.Text)
+		if err != nil {
+			return nil, fmt.Errorf("failed to translate to English: %v", err)
+		}
+		// 第二步：从英文翻译到目标语言
+		return p.translateWithEndpoints(detectedLang, "en", req.To, intermediateResult.Result)
+	}
+
+	// 直接翻译
+	return p.translateWithEndpoints(detectedLang, fromLang, req.To, req.Text)
+}
+
+// translateWithEndpoints 是实际的翻译实现，处理与endpoint的通信
+func (p *MTranServerProvider) translateWithEndpoints(detectedLang, from, to, text string) (*TranslationResponse, error) {
 	requestBody := map[string]string{
-		"from": fromLang,
-		"to":   req.To,
-		"text": req.Text,
+		"from": from,
+		"to":   to,
+		"text": text,
 	}
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %v", err)
 	}
 
-	// 尝试每个endpoint直到成功
 	var lastErr error
 	attemptedEndpoints := make(map[string]bool)
 
@@ -104,13 +126,12 @@ func (p *MTranServerProvider) Translate(req TranslationRequest) (*TranslationRes
 			continue
 		}
 
-		fmt.Println(string(body))
-
 		var result TranslationResponse
 		if err := json.Unmarshal(body, &result); err != nil {
 			lastErr = err
 			continue
 		}
+		result.DetectedSourceLang = detectedLang
 
 		return &result, nil
 	}
