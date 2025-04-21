@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>翻译测试页面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            height: 150px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background-color: #f1f1f1;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: none;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>翻译测试页面</h1>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('single')">单次翻译</div>
+            <div class="tab" onclick="switchTab('batch')">批量翻译</div>
+        </div>
+
+        <div id="single" class="tab-content active">
+            <div class="form-group">
+                <label for="provider">翻译服务:</label>
+                <select id="provider">
+                    <option value="mtranserver">MTranServer</option>
+                    <option value="google">Google</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="from">源语言:</label>
+                <input type="text" id="from" value="auto" placeholder="例如: en, zh, auto">
+            </div>
+            <div class="form-group">
+                <label for="to">目标语言:</label>
+                <input type="text" id="to" value="zh" placeholder="例如: en, zh">
+            </div>
+            <div class="form-group">
+                <label for="text">待翻译文本:</label>
+                <textarea id="text" placeholder="请输入要翻译的文本"></textarea>
+            </div>
+            <button onclick="translate0()">翻译</button>
+        </div>
+
+        <div id="batch" class="tab-content">
+            <div class="form-group">
+                <label for="batch_provider">翻译服务:</label>
+                <select id="batch_provider">
+                    <option value="mtranserver">MTranServer</option>
+                    <option value="google">Google</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="batch_from">源语言:</label>
+                <input type="text" id="batch_from" value="auto" placeholder="例如: en, zh, auto">
+            </div>
+            <div class="form-group">
+                <label for="batch_to">目标语言:</label>
+                <input type="text" id="batch_to" value="zh" placeholder="例如: en, zh">
+            </div>
+            <div class="form-group">
+                <label for="batch_texts">待翻译文本 (每行一个):</label>
+                <textarea id="batch_texts" placeholder="请输入要翻译的文本，每行一个"></textarea>
+            </div>
+            <button onclick="batchTranslate()">批量翻译</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;">
+            <h3>翻译结果:</h3>
+            <div id="result_content"></div>
+        </div>
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function showError(message) {
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = message;
+            document.getElementById('result').style.display = 'none';
+        }
+
+        function showResult(content) {
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('result').style.display = 'block';
+            document.getElementById('result_content').innerHTML = content;
+        }
+
+        function formatJSON(obj) {
+            return JSON.stringify(obj, null, 2);
+        }
+
+        async function translate0() {
+            const provider = document.getElementById('provider').value;
+            const from = document.getElementById('from').value;
+            const to = document.getElementById('to').value;
+            const text = document.getElementById('text').value;
+
+            if (!text) {
+                showError('请输入要翻译的文本');
+                return;
+            }
+
+            try {
+                const response = await fetch('/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        provider,
+                        from,
+                        to,
+                        text
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                showResult(`
+                    <pre>${formatJSON(result)}</pre>
+                    <p>检测到的源语言: ${result.detectedSourceLang || '未知'}</p>
+                    <p>翻译结果: ${result.result}</p>
+                `);
+            } catch (error) {
+                showError(`翻译失败: ${error.message}`);
+            }
+        }
+
+        async function batchTranslate() {
+            const provider = document.getElementById('batch_provider').value;
+            const from = document.getElementById('batch_from').value;
+            const to = document.getElementById('batch_to').value;
+            const texts = document.getElementById('batch_texts').value.split('\n').filter(t => t.trim());
+
+            if (texts.length === 0) {
+                showError('请输入要翻译的文本');
+                return;
+            }
+
+            try {
+                const response = await fetch('/batch_translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        provider,
+                        from,
+                        to,
+                        texts
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                let content = `<pre>${formatJSON(result)}</pre>`;
+                content += `<p>检测到的源语言: ${result.detected_source_lang || '未知'}</p>`;
+                content += '<p>翻译结果:</p><ul>';
+                result.results.forEach((text, index) => {
+                    content += `<li>${texts[index]} → ${text}</li>`;
+                });
+                content += '</ul>';
+                showResult(content);
+            } catch (error) {
+                showError(`翻译失败: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html> 
