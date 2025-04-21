@@ -42,15 +42,15 @@ func (p *GoogleProvider) Translate(req TranslationRequest) (*TranslationResponse
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("读取响应失败: %v", err)
 	}
-	fmt.Printf("Google翻译API响应: %s\n", string(body))
+	fmt.Printf("Google翻译API响应: %s, code=%d\n", string(body), resp.StatusCode)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
 
 	// [[["你好","hello",null,null,10]],null,"en",null,null,null,null,[]]
 	var result []interface{}

@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
-	"sync/atomic"
+	"sync"
 
 	"github.com/pemistahl/lingua-go"
 )
@@ -16,6 +17,9 @@ type MTranServerProvider struct {
 	endpoints            []string
 	detector             lingua.LanguageDetector
 	currentEndpointIndex int64
+	// 添加endpoint负载跟踪
+	endpointLoads map[string]int64
+	loadMutex     sync.Mutex
 }
 
 func NewMTranServerProvider(endpoints []string) *MTranServerProvider {
@@ -24,25 +28,53 @@ func NewMTranServerProvider(endpoints []string) *MTranServerProvider {
 		FromAllLanguages().
 		Build()
 
+	// 初始化endpoint负载跟踪
+	endpointLoads := make(map[string]int64)
+	for _, endpoint := range endpoints {
+		endpointLoads[endpoint] = 0
+	}
+
 	return &MTranServerProvider{
 		endpoints:            endpoints,
 		detector:             detector,
 		currentEndpointIndex: 0,
+		endpointLoads:        endpointLoads,
 	}
+}
+
+// 增加endpoint的负载计数
+func (p *MTranServerProvider) incrementEndpointLoad(endpoint string) {
+	p.loadMutex.Lock()
+	defer p.loadMutex.Unlock()
+	p.endpointLoads[endpoint]++
+}
+
+// 减少endpoint的负载计数
+func (p *MTranServerProvider) decrementEndpointLoad(endpoint string) {
+	p.loadMutex.Lock()
+	defer p.loadMutex.Unlock()
+	p.endpointLoads[endpoint]--
 }
 
 func (p *MTranServerProvider) getNextEndpoint() string {
 	if len(p.endpoints) == 0 {
 		return ""
 	}
-	// 使用原子操作获取当前索引
-	index := atomic.AddInt64(&p.currentEndpointIndex, 1) - 1
-	// 确保索引在有效范围内
-	index = index % int64(len(p.endpoints))
-	if index < 0 {
-		index = 0
-	}
-	return p.endpoints[index]
+
+	p.loadMutex.Lock()
+	defer p.loadMutex.Unlock()
+
+	// 创建一个endpoint列表的副本用于排序
+	endpoints := make([]string, len(p.endpoints))
+	copy(endpoints, p.endpoints)
+
+	// 根据负载排序endpoints
+	sort.Slice(endpoints, func(i, j int) bool {
+		return p.endpointLoads[endpoints[i]] < p.endpointLoads[endpoints[j]]
+	})
+
+	// 返回负载最轻的endpoint
+	return endpoints[0]
 }
 
 func (p *MTranServerProvider) Translate(req TranslationRequest) (*TranslationResponse, error) {
@@ -103,6 +135,10 @@ func (p *MTranServerProvider) translateWithEndpoints(detectedLang, from, to, tex
 			continue
 		}
 		attemptedEndpoints[endpoint] = true
+
+		// 增加endpoint负载计数
+		p.incrementEndpointLoad(endpoint)
+		defer p.decrementEndpointLoad(endpoint)
 
 		resp, err := http.Post(
 			fmt.Sprintf("%s/translate", endpoint),
