@@ -94,24 +94,12 @@ func (p *MTranServerProvider) Translate(req TranslationRequest) (*TranslationRes
 		detectedLang = fromLang
 	}
 
-	// 检查是否需要两步翻译（当目标语言是中文且源语言不是英文时）
-	needTwoStepTranslation := !(req.To == "en" || fromLang == "en")
-
-	var intermediateResult *TranslationResponse
-	var err error
-
-	if needTwoStepTranslation {
-		// 第一步：先翻译到英文
-		intermediateResult, err = p.translateWithEndpoints(detectedLang, fromLang, "en", req.Text)
-		if err != nil {
-			return nil, fmt.Errorf("failed to translate to English: %v", err)
-		}
-		// 第二步：从英文翻译到目标语言
-		return p.translateWithEndpoints(detectedLang, "en", req.To, intermediateResult.Result)
-	}
-
-	// 直接翻译
 	return p.translateWithEndpoints(detectedLang, fromLang, req.To, req.Text)
+}
+
+type mTransServerResponse struct {
+	Result string `json:"result"`
+	Text   string `json:"text"`
 }
 
 // translateWithEndpoints 是实际的翻译实现，处理与endpoint的通信
@@ -162,12 +150,18 @@ func (p *MTranServerProvider) translateWithEndpoints(detectedLang, from, to, tex
 			continue
 		}
 
-		var result TranslationResponse
-		if err := json.Unmarshal(body, &result); err != nil {
+		var translationResponse mTransServerResponse
+		if err := json.Unmarshal(body, &translationResponse); err != nil {
 			lastErr = err
 			continue
 		}
+
+		var result TranslationResponse
 		result.DetectedSourceLang = detectedLang
+		result.Result = translationResponse.Result
+		if result.Result == "" {
+			result.Result = translationResponse.Text
+		}
 
 		return &result, nil
 	}
