@@ -1,2 +1,3 @@
 config.yml
 *.exe
+/build
