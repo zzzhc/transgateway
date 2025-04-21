@@ -39,6 +39,9 @@ func main() {
 		providers["google"] = translator.NewGoogleProvider(cfg.Providers.Google.Proxy)
 	}
 
+	// 添加 OpenCC 提供者
+	providers["opencc"] = translator.NewOpenCCProvider()
+
 	// 设置Gin路由
 	r := gin.Default()
 
@@ -103,6 +106,15 @@ func main() {
 		c.JSON(http.StatusOK, result)
 	})
 
+	// 繁简转换
+	r.GET("/cc", func(c *gin.Context) {
+		handleCC(c, providers["opencc"])
+	})
+
+	r.POST("/cc", func(c *gin.Context) {
+		handleCC(c, providers["opencc"])
+	})
+
 	// 启动服务器
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	log.Printf("服务器启动在 %s", addr)
@@ -144,6 +156,67 @@ func handleTranslate(c *gin.Context, providers map[string]translator.Provider) {
 	result, err := provider.Translate(translator.TranslationRequest{
 		From: req.From,
 		To:   req.To,
+		Text: req.Text,
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+// handleCC 处理繁简转换请求
+func handleCC(c *gin.Context, provider translator.Provider) {
+	var req struct {
+		Type string `json:"type" form:"type"`
+		Text string `json:"text" form:"text"`
+	}
+
+	if c.Request.Method == http.MethodPost {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	} else {
+		req.Type = c.Query("type")
+		req.Text = c.Query("text")
+	}
+
+	if req.Type == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type 参数不能为空"})
+		return
+	}
+
+	if req.Text == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "text 参数不能为空"})
+		return
+	}
+
+	// 解析转换类型
+	var from, to string
+	switch req.Type {
+	case "s2t":
+		from, to = "s", "t"
+	case "t2s":
+		from, to = "t", "s"
+	case "s2tw":
+		from, to = "s", "tw"
+	case "tw2s":
+		from, to = "tw", "s"
+	case "s2hk":
+		from, to = "s", "hk"
+	case "hk2s":
+		from, to = "hk", "s"
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不支持的转换类型"})
+		return
+	}
+
+	result, err := provider.Translate(translator.TranslationRequest{
+		From: from,
+		To:   to,
 		Text: req.Text,
 	})
 
