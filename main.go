@@ -18,10 +18,15 @@ var staticFS embed.FS
 
 var (
 	configPath = flag.String("c", "config.yml", "配置文件路径")
+	debugMode  = flag.Bool("d", false, "启用调试模式")
 )
 
 func main() {
 	flag.Parse()
+
+	if !*debugMode {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
